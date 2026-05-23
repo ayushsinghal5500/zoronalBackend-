@@ -51,10 +51,11 @@ export const createCompany = async (req, res) => {
         logoPath = uploadResult.secure_url;
         console.log("DEBUG: Cloudinary Upload Success (Memory):", logoPath);
       } catch (uploadError) {
-        console.error("DEBUG: Cloudinary Upload Failed:",uploadError?.message || uploadError);
+        console.error("FULL CLOUDINARY ERROR:", uploadError);
         return res.status(500).json({
           success: false,
-          message: "Image upload to Cloudinary failed",
+          message: uploadError?.message || "Cloudinary Upload Failed",
+          error: uploadError,
         });
       }
     }
