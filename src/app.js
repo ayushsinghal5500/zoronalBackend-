@@ -36,6 +36,11 @@ app.get('/', (req, res) => {
   res.send('Welcome to Review and Rating API');
 });
 
+// Health Check Route for Render
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Server is active' });
+});
+
 app.use('/api/companies', companyRoutes);
 app.use('/api/reviews', reviewRoutes);
 
