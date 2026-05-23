@@ -1,6 +1,5 @@
 import Company from "../models/company.model.js";
 import cloudinary from "../config/cloudinary.js";
-import fs from "fs";
 
 
 // CREATE COMPANY
@@ -10,7 +9,6 @@ export const createCompany = async (req, res) => {
 
     // Validation
     if (!companyName || !location || !foundedOn || !city) {
-      if (req.file) fs.unlinkSync(req.file.path); // Delete temp file
       return res.status(400).json({
         success: false,
         message: "All fields are required",
@@ -23,31 +21,37 @@ export const createCompany = async (req, res) => {
     });
 
     if (existingCompany) {
-      if (req.file) fs.unlinkSync(req.file.path); // Delete temp file
       return res.status(409).json({
         success: false,
         message: "Company already exists",
       });
     }
 
-    // Handle logo file with Manual Cloudinary Upload
+    // Handle logo file with Cloudinary Buffer Upload (Memory Storage)
     let logoPath = "";
     if (req.file) {
       try {
-        console.log("DEBUG: Uploading to Cloudinary:", req.file.path);
-        const uploadResult = await cloudinary.uploader.upload(req.file.path, {
-          folder: "zoronal",
-          resource_type: "auto",
-        });
+        console.log("DEBUG: Uploading buffer to Cloudinary...");
         
-        logoPath = uploadResult.secure_url;
-        console.log("DEBUG: Cloudinary Upload Success:", logoPath);
+        // Use upload_stream for memory buffers
+        const uploadResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: "zoronal",
+              resource_type: "auto",
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          stream.end(req.file.buffer);
+        });
 
-        // Delete local temp file after successful upload
-        fs.unlinkSync(req.file.path);
+        logoPath = uploadResult.secure_url;
+        console.log("DEBUG: Cloudinary Upload Success (Memory):", logoPath);
       } catch (uploadError) {
         console.error("DEBUG: Cloudinary Upload Failed:", uploadError);
-        if (req.file) fs.unlinkSync(req.file.path); // Cleanup on failure
         return res.status(500).json({
           success: false,
           message: "Image upload to Cloudinary failed",
@@ -73,8 +77,6 @@ export const createCompany = async (req, res) => {
 
   } catch (error) {
     console.log("Create Company Error:", error);
-    if (req.file) fs.unlinkSync(req.file.path); // Final cleanup
-
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
