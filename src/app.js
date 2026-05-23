@@ -1,13 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import companyRoutes from './routes/comapny.route.js';
 import reviewRoutes from './routes/review.route.js';
 import { blockApiTools } from './middlewares/security.middleware.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -15,7 +10,9 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:5000",
-  process.env.FRONTEND_URL
+  "https://zoronal-nine.vercel.app",
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL_PROD
 ].filter(Boolean);
 
 // Middlewares
@@ -27,14 +24,12 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Security: Block API testing tools like Postman
+// Security
 app.use(blockApiTools);
-
-// Static folder for file uploads - adjusting path since app.js is in src/
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes
 app.get('/', (req, res) => {

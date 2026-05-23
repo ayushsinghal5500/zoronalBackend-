@@ -1,4 +1,6 @@
 import Company from "../models/company.model.js";
+import cloudinary from "../config/cloudinary.js";
+import fs from "fs";
 
 
 // CREATE COMPANY
@@ -8,19 +10,10 @@ export const createCompany = async (req, res) => {
 
     // Validation
     if (!companyName || !location || !foundedOn || !city) {
+      if (req.file) fs.unlinkSync(req.file.path); // Delete temp file
       return res.status(400).json({
         success: false,
         message: "All fields are required",
-      });
-    }
-
-    // Date validation - foundedOn should not be in the future
-    const foundedDate = new Date(foundedOn);
-    const today = new Date();
-    if (foundedDate > today) {
-      return res.status(400).json({
-        success: false,
-        message: "Foundation date cannot be in the future",
       });
     }
 
@@ -30,16 +23,36 @@ export const createCompany = async (req, res) => {
     });
 
     if (existingCompany) {
+      if (req.file) fs.unlinkSync(req.file.path); // Delete temp file
       return res.status(409).json({
         success: false,
         message: "Company already exists",
       });
     }
 
-    // Handle logo file
+    // Handle logo file with Manual Cloudinary Upload
     let logoPath = "";
     if (req.file) {
-      logoPath = `/uploads/${req.file.filename}`;
+      try {
+        console.log("DEBUG: Uploading to Cloudinary:", req.file.path);
+        const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+          folder: "zoronal",
+          resource_type: "auto",
+        });
+        
+        logoPath = uploadResult.secure_url;
+        console.log("DEBUG: Cloudinary Upload Success:", logoPath);
+
+        // Delete local temp file after successful upload
+        fs.unlinkSync(req.file.path);
+      } catch (uploadError) {
+        console.error("DEBUG: Cloudinary Upload Failed:", uploadError);
+        if (req.file) fs.unlinkSync(req.file.path); // Cleanup on failure
+        return res.status(500).json({
+          success: false,
+          message: "Image upload to Cloudinary failed",
+        });
+      }
     }
 
     // Create company
@@ -60,6 +73,7 @@ export const createCompany = async (req, res) => {
 
   } catch (error) {
     console.log("Create Company Error:", error);
+    if (req.file) fs.unlinkSync(req.file.path); // Final cleanup
 
     return res.status(500).json({
       success: false,
@@ -98,13 +112,10 @@ export const getAllCompanies = async (req, res) => {
       total: totalCompanies,
       page: pageNum,
       limit: limitNum,
-      totalPages: Math.ceil(totalCompanies / limitNum),
-      data: companies,
+      data: companies
     });
-
   } catch (error) {
     console.log("Get All Companies Error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -114,9 +125,7 @@ export const getAllCompanies = async (req, res) => {
 
 export const getSingleCompany = async (req, res) => {
   try {
-
     const { id } = req.params;
-
     const company = await Company.findById(id);
 
     if (!company) {
@@ -130,10 +139,8 @@ export const getSingleCompany = async (req, res) => {
       success: true,
       data: company,
     });
-
   } catch (error) {
     console.log("Get Single Company Error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
